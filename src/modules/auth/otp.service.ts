@@ -69,6 +69,9 @@ export class OTPService {
   async getOTPMailForForgotPassword(req: any, query: any) {
     const email = query.email;
     const user = await this.userService.findByEmail(email);
+    console.log('Email:', email);
+    const a = await this.userService.findByEmail(email);
+    console.log('User:', a);
     if (!user) {
       throw new HttpException(
         { message: 'User not found' },

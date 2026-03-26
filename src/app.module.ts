@@ -14,6 +14,12 @@ import { UserModule } from './modules/user/user.module';
 import { TripModule } from './modules/trip/trip.module';
 import { BlackListModule } from './modules/black-list/black-list.module';
 import { MessageController } from './modules/message/message.controller';
+import { MessageModule } from './modules/message/message.module';
+import { Schedule } from './entities/schedule.entity';
+import { ScheduleModule } from './modules/schedule/schedule.module';
+import { F } from 'node_modules/@faker-js/faker/dist/airline-DF6RqYmq';
+import { FixedTripRequestModule } from './modules/fixed-trip-request/fixed-trip-request.module';
+import { ProfileModule } from './modules/profile/profile.module';
 
 @Module({
   imports: [
@@ -64,6 +70,10 @@ import { MessageController } from './modules/message/message.controller';
     UserModule,
     TripModule,
     BlackListModule,
+    MessageModule,
+    ScheduleModule,
+    FixedTripRequestModule,
+    ProfileModule,
   ],
   controllers: [AppController, MessageController],
   providers: [AppService],

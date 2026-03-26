@@ -1,0 +1,93 @@
+// filepath: e:\AppDriver\app-driver\src\modules\fixed-trip-request\fixed-trip-request.service.ts
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { FixedTripRequest, RequestStatus } from 'src/entities/fixed-trip-request.entity';
+import { User } from 'src/entities/user.entity';
+
+@Injectable()
+export class FixedTripRequestService {
+  constructor(
+    @InjectRepository(FixedTripRequest)
+    private readonly requestRepository: Repository<FixedTripRequest>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
+
+  async createRequest(
+    requesterId: number,
+    requesteeId: number,
+    data: {
+      requestedDays: string[];
+      startTime: string;
+      endTime: string;
+      startLocation: string;
+      destination: string;
+    },
+  ) {
+    const requester = await this.userRepository.findOneBy({ id: requesterId });
+    const requestee = await this.userRepository.findOneBy({ id: requesteeId });
+
+    if (!requester || !requestee) {
+      throw new NotFoundException('User not found');
+    }
+    if (requesterId === requesteeId) {
+      throw new BadRequestException('Cannot send request to yourself.');
+    }
+
+    const newRequest = this.requestRepository.create({
+      requester,
+      requestee,
+      requestedDays: data.requestedDays,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      startLocation: data.startLocation,
+      destination: data.destination,
+      status: RequestStatus.PENDING,
+    });
+
+    return this.requestRepository.save(newRequest);
+  }
+
+  async getReceivedRequests(userId: number) {
+    return this.requestRepository.find({
+      where: { requestee: { id: userId }, status: RequestStatus.PENDING },
+      relations: ['requester'],
+    });
+  }
+
+  async approveRequest(requestId: number, approverId: number, approvedDays: string[]) {
+    const request = await this.requestRepository.findOne({
+        where: { id: requestId },
+        relations: ['requestee']
+    });
+
+    if (!request) throw new NotFoundException('Request not found.');
+    if (request.requestee.id !== approverId) throw new BadRequestException('You are not authorized to approve this request.');
+    if (request.status !== RequestStatus.PENDING) throw new BadRequestException('Request is not pending.');
+
+    // Validate approvedDays are a subset of requestedDays
+    const isValid = approvedDays.every(day => request.requestedDays.includes(day));
+    if (!isValid) {
+        throw new BadRequestException('Approved days must be a subset of requested days.');
+    }
+
+    request.approvedDays = approvedDays;
+    request.status = RequestStatus.APPROVED;
+    return this.requestRepository.save(request);
+  }
+
+  async rejectRequest(requestId: number, approverId: number) {
+    const request = await this.requestRepository.findOne({
+        where: { id: requestId },
+        relations: ['requestee']
+    });
+
+    if (!request) throw new NotFoundException('Request not found.');
+    if (request.requestee.id !== approverId) throw new BadRequestException('You are not authorized to reject this request.');
+    
+    request.status = RequestStatus.REJECTED;
+    return this.requestRepository.save(request);
+  }
+  
+}

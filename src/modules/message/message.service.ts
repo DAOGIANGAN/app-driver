@@ -11,13 +11,18 @@ export class MessageService {
 
   // Tạo tin nhắn mới
   async create(data: Partial<Message>) {
+    console.log('Creating message with data:', data); // Log để kiểm tra
     const created = new this.messageModel(data);
     return created.save();
   }
 
   // Lấy tin nhắn theo trip
   async findByTrip(tripId: string) {
-    return this.messageModel.find({ tripId, type: 'trip' }).sort({ createdAt: 1 }).exec();
+    return this.messageModel
+      .find({ tripId, type: 'trip' })
+      .select('_id senderId content createdAt')
+      .sort({ createdAt: 1 })
+      .exec();
   }
 
   // Lấy tin nhắn riêng giữa 2 user

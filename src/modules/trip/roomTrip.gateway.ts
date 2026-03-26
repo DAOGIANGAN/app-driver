@@ -51,6 +51,15 @@ export class RoomTripGateway {
     }
   }
 
+  // Thông báo cho tất cả thành viên trong room rằng user đã được duyệt tham gia chuyến
+  public notifyUserApprovedToRoom(customerId: string, tripId: string) {
+    console.log(`[Gateway] Thông báo user ${customerId} được duyệt cho phòng ${tripId}`);
+    this.server.to(tripId).emit('userApproved', { 
+      userId: customerId, 
+      tripId: tripId 
+    });
+  }
+
   // Thông báo có thêm khách tham gia chuyến, chỉ gửi cho tài xế
   notifyNewCustomerAddedToDriver(driverId: string, tripId: string, customerId: string) {
     const socketId = this.userSocketMap.get(driverId);

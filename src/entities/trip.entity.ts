@@ -62,4 +62,7 @@ export class Trip {
     default: TripStatus.ACTIVE,
   })
   status: TripStatus;
+
+  @Column({ type: 'varchar', length: 10 })
+  dayOfWeek: string; // Thứ trong tuần (e.g., 'Monday', 'Tuesday')
 }

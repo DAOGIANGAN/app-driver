@@ -72,4 +72,9 @@ export class TripController {
     return await this.tripService.getTripById(tripId);
   }  
   
+  @UseGuards(JwtAccessAuthGuard)
+  @Patch(':tripId/complete')
+  async completeTrip(@Request() req, @Param('tripId') tripId: number) {
+    return this.tripService.setTripCompleted(req.user.id, tripId);
+  }
 }

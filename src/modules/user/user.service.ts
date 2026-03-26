@@ -3,12 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/entities/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { Profile } from 'src/entities/profile.entity';
 
 
 @Injectable()
 export class UserService {
     constructor(
-        @InjectRepository(User) private userRepository: Repository<User>
+        @InjectRepository(User) private userRepository: Repository<User>,
+        @InjectRepository(Profile) private profileRepository: Repository<Profile>
     ) {}
 
   async create(userData: any) {
@@ -25,9 +27,11 @@ export class UserService {
 
     await this.userRepository.save(newUser);
 
-    // await this.userProfileService.createProfile(newUser, {
-    //   ...userData,
-    // });
+    const profile = this.profileRepository.create({
+      ...userData,
+      user: newUser,
+    });
+    await this.profileRepository.save(profile);
 
     return {
       success: true,
@@ -43,9 +47,18 @@ export class UserService {
   }
 
   async findByEmail(email: string | undefined) {
-    return this.userRepository.findOne({
-      where: { email },
+    const profile = await this.profileRepository.findOne({
+      where: { email: email },
+      relations: ['user'], // Lấy cả thông tin user liên kết
     });
+
+    if (!profile) return null;
+
+    return {
+      ...profile,
+      userId: profile.user ? profile.user.id : null,
+      isActivated: profile.user ? profile.user.isActivated : null,
+    };
   }
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -82,4 +95,38 @@ export class UserService {
     };
   }
 
+  async resetPassword(req: any, passwordData: any) {
+    console.log(req.user);
+    const userId = req.user.userId;
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'User not found',
+          statusCode: HttpStatus.NOT_FOUND,
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const hashedPassword = await bcrypt.hashSync(
+      passwordData.password,
+      parseInt(process.env.SALT_ROUNDS || '10'),
+    );
+
+    await this.userRepository.update(user.id, {
+      password: hashedPassword,
+    });
+
+    return {
+      success: true,
+      message: 'Password reset successfully',
+      statusCode: HttpStatus.OK,
+    };
+  }
+  
 }

@@ -7,6 +7,7 @@ import { Repository, MoreThan } from 'typeorm';
 import { Trip, TripStatus } from 'src/entities/trip.entity';
 import { User } from 'src/entities/user.entity';
 import { RoomTripGateway } from './roomTrip.gateway';
+import { FixedTripRequest, RequestStatus } from 'src/entities/fixed-trip-request.entity';
 
 
 @Injectable()
@@ -16,49 +17,67 @@ export class TripService {
     private readonly tripRepository: Repository<Trip>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(FixedTripRequest) // Inject repository mới
+    private readonly fixedTripRequestRepository: Repository<FixedTripRequest>,
     private readonly roomTripGateway: RoomTripGateway,
   ) {}
 
   async joinTrip(customerId: number, tripId: number) {
-  // Lấy thông tin khách hàng
-    const customer = await this.userRepository.findOne({
-      where: { id: customerId },
-      relations: ['joinedTrips'],
-    });
-
-    // Kiểm tra xem khách đã được duyệt chuyến nào chưa
-    // const hasActiveTrip = await this.tripRepository.exists({
-    //   where: {
-    //     approvedCustomers: { id: customerId },
-    //     status: TripStatus.ACTIVE,
-    //   },
-    // });
-
-    // if (hasActiveTrip) {
-    //   throw new BadRequestException('Bạn đã tham gia một chuyến khác đang hoạt động!');
-    // }
-
-    // Lấy chuyến muốn tham gia
+    const customer = await this.userRepository.findOneBy({ id: customerId });
+    if (!customer) throw new NotFoundException('Không tìm thấy khách hàng!');
+    
     const trip = await this.tripRepository.findOne({
       where: { id: tripId },
-      relations: ['customers'],
+      relations: ['driver', 'customers', 'approvedCustomers'],
     });
 
     if (!trip) throw new NotFoundException('Không tìm thấy chuyến đi!');
-    if (trip.customers.length >= trip.slot) {
-      throw new BadRequestException('Chuyến đã đầy!');
-    }
-    if (customerId === trip.driver.id) {
+    if (trip.driver.id === customerId) {
       throw new BadRequestException('Tài xế không thể tham gia chuyến của chính mình!');
     }
-    // Thêm khách vào danh sách
-    if (customer != null) {
-      trip.customers.push(customer);
-      await this.userRepository.save(customer);
+    if (trip.approvedCustomers.length + trip.customers.length >= trip.slot) {
+      throw new BadRequestException('Chuyến đã đầy!');
+    }
+    if (trip.approvedCustomers.some(c => c.id === customerId) || trip.customers.some(c => c.id === customerId)) {
+        throw new BadRequestException('Bạn đã tham gia chuyến đi này rồi!');
     }
 
+    // --- LOGIC MỚI ---
+    // 1. Tìm yêu cầu chuyến cố định đã được duyệt
+    const fixedRequest = await this.fixedTripRequestRepository.findOne({
+      where: {
+        requester: { id: customerId },
+        requestee: { id: trip.driver.id },
+        status: RequestStatus.APPROVED,
+      },
+    });
+
+    // 2. Kiểm tra các điều kiện
+    if (fixedRequest) {
+      const departureDate = new Date(trip.departureTime);
+      const daysOfWeek = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+      const dayOfWeek = daysOfWeek[departureDate.getDay()];
+
+      const isDayMatch = fixedRequest.approvedDays.includes(dayOfWeek);
+      const isTimeMatch = trip.departureTime.toTimeString().slice(0, 5) >= fixedRequest.startTime &&
+                          trip.departureTime.toTimeString().slice(0, 5) <= fixedRequest.endTime;
+      const isLocationMatch = trip.startLocation === fixedRequest.startLocation &&
+                              trip.destination === fixedRequest.destination;
+
+      // 3. Nếu khớp, tự động duyệt
+      if (isDayMatch && isTimeMatch && isLocationMatch) {
+        trip.approvedCustomers.push(customer);
+        await this.tripRepository.save(trip);
+        // Gửi thông báo cho khách là đã được tự động duyệt
+        this.roomTripGateway.notifyUserApproved(customerId.toString(), tripId.toString());
+        return { message: 'Tự động tham gia chuyến đi thành công do có lịch cố định!', trip };
+      }
+    }
+    
+    // --- LOGIC CŨ (nếu không có yêu cầu cố định phù hợp) ---
+    trip.customers.push(customer);
     await this.tripRepository.save(trip);
-    // Thông báo cho tài xế khi có khách mới tham gia
+    
     this.roomTripGateway.notifyNewCustomerAddedToDriver(
       trip.driver.id.toString(),
       trip.id.toString(),
@@ -91,6 +110,11 @@ export class TripService {
       );
     }
 
+    // Tính thứ trong tuần từ departureTime
+    const departureDate = new Date(dto.departureTime);
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayOfWeek = daysOfWeek[departureDate.getDay()]; // Lấy tên thứ
+
     // Tạo chuyến đi mới
     const trip = this.tripRepository.create({
       driver,
@@ -100,6 +124,7 @@ export class TripService {
       destination: dto.destination,
       status: TripStatus.ACTIVE,
       customers: [], // Chưa có khách nào khi mới tạo
+      dayOfWeek, // Lưu thứ trong tuần
     });
 
     await this.tripRepository.save(trip);
@@ -218,7 +243,6 @@ export class TripService {
 
     await this.tripRepository.save(trip);
     return { message: 'Bạn đã rời khỏi chuyến đi thành công!', trip };
-
   }
 
   async getCurrentTrip(userId: number): Promise<any> {
@@ -283,6 +307,7 @@ export class TripService {
 
     // Gửi thông báo realtime cho khách vừa được duyệt
     this.roomTripGateway.notifyUserApproved(customerId.toString(), tripId.toString());
+    this.roomTripGateway.notifyUserApprovedToRoom(customerId.toString(), tripId.toString());
 
     return { message: 'Duyệt khách thành công!', trip };
   }
@@ -298,4 +323,30 @@ export class TripService {
     }
     return trip;
   }  
+
+  async setTripCompleted(driverId: number, tripId: number): Promise<{ message: string; trip: Trip }> {
+    // Tìm chuyến đi theo ID và tài xế
+    const trip = await this.tripRepository.findOne({
+      where: {
+        id: tripId,
+        driver: { id: driverId },
+        status: TripStatus.ACTIVE, // Chỉ có thể hoàn thành chuyến đang hoạt động
+      },
+      relations: ['driver', 'customers', 'approvedCustomers'],
+    });
+
+    if (!trip) {
+      throw new NotFoundException('Không tìm thấy chuyến đi đang hoạt động của tài xế!');
+    }
+
+    // Cập nhật trạng thái chuyến đi thành COMPLETED
+    trip.status = TripStatus.COMPLETED;
+    await this.tripRepository.save(trip);
+
+    // Gửi thông báo nếu cần (tùy chỉnh thêm nếu có RoomTripGateway)
+    // this.roomTripGateway.notifyTripCompleted(trip.id.toString());
+
+    return { message: 'Chuyến đi đã được hoàn thành!', trip };
+  }
+
 }

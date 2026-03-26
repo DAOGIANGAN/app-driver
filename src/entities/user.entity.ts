@@ -13,6 +13,9 @@ import { RefreshToken } from './refresh-token.entity';
 import { FCMToken } from './fcm-token.entity';
 import { Trip } from './trip.entity';
 import { UserBlackList } from './userBlackList.entity';
+import { Schedule } from './schedule.entity';
+import { FixedTripRequest } from './fixed-trip-request.entity';
+import { Profile } from './profile.entity';
 
 @Entity()
 export class User {
@@ -69,4 +72,21 @@ export class User {
   @OneToMany(() => UserBlackList, (blacklist) => blacklist.blocked)
   blockedBy: UserBlackList[];
 
+  @OneToMany(() => Schedule, (schedule) => schedule.user, { cascade: true })
+  schedules: Schedule[];
+
+  @OneToMany(
+    () => FixedTripRequest,
+    (request) => request.requester,
+  )
+  sentFixedTripRequests: FixedTripRequest[];
+
+  @OneToMany(
+    () => FixedTripRequest,
+    (request) => request.requestee,
+  )
+  receivedFixedTripRequests: FixedTripRequest[];
+
+  @OneToOne(() => Profile, (profile) => profile.user, { cascade: true })
+  profile: Profile;
 }
