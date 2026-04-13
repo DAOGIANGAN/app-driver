@@ -13,7 +13,18 @@ export class ScheduleController {
   async compareSchedules(
     @Query('userId1') userId1: number,
     @Query('userId2') userId2: number,
-  ): Promise<{ previousSchedule1: Schedule; previousSchedule2: Schedule; nextSchedule1: Schedule; nextSchedule2: Schedule }[]> {
+  ): Promise<
+    {
+      previousSchedule1: Schedule;
+      previousSchedule2: Schedule;
+      nextSchedule1: Schedule;
+      nextSchedule2: Schedule;
+      driverId: number;
+      driverName: string;
+      phoneNumber: string;
+      urlPublicAvatar: string;
+    }[]
+  > {
     return this.scheduleService.compareSchedules(userId1, userId2);
   }
 
@@ -21,7 +32,18 @@ export class ScheduleController {
   @UseGuards(JwtAccessAuthGuard)
   async compareWithLastDriverSchedule(
     @Query('userId') userId: number,
-  ): Promise<{ previousSchedule1: Schedule; previousSchedule2: Schedule; nextSchedule1: Schedule; nextSchedule2: Schedule }[]> {
+  ): Promise<
+    {
+      previousSchedule1: Schedule;
+      previousSchedule2: Schedule;
+      nextSchedule1: Schedule;
+      nextSchedule2: Schedule;
+      driverId: number;
+      driverName: string;
+      phoneNumber: string;
+      urlPublicAvatar: string;
+    }[]
+  > {
     return this.scheduleService.compareWithLastDriverSchedule(userId);
   }
 

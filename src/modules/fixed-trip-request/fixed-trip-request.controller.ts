@@ -16,7 +16,7 @@ export class FixedTripRequestController {
     @Body()
     body: {
       requesteeId: number;
-      requestedDays: string[];
+      requestedDay: string;
       startTime: string;
       endTime: string;
       startLocation: string;
@@ -37,10 +37,9 @@ export class FixedTripRequestController {
   @UseGuards(JwtAccessAuthGuard)
   approveRequest(
     @Request() req,
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: { approvedDays: string[] },
+    @Param('id', ParseIntPipe) id: number
   ) {
-    return this.requestService.approveRequest(id, req.user.id, body.approvedDays);
+    return this.requestService.approveRequest(id, req.user.id);
   }
 
   @Patch(':id/reject')

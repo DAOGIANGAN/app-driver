@@ -3,12 +3,12 @@ import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, In } from 'typeorm';
 import { Trip, TripStatus } from 'src/entities/trip.entity';
 import { User } from 'src/entities/user.entity';
 import { RoomTripGateway } from './roomTrip.gateway';
 import { FixedTripRequest, RequestStatus } from 'src/entities/fixed-trip-request.entity';
-
+import { BlackListService } from '../black-list/black-list.service';
 
 @Injectable()
 export class TripService {
@@ -20,6 +20,7 @@ export class TripService {
     @InjectRepository(FixedTripRequest) // Inject repository mới
     private readonly fixedTripRequestRepository: Repository<FixedTripRequest>,
     private readonly roomTripGateway: RoomTripGateway,
+    private readonly blackListService: BlackListService,
   ) {}
 
   async joinTrip(customerId: number, tripId: number) {
@@ -43,8 +44,8 @@ export class TripService {
     }
 
     // --- LOGIC MỚI ---
-    // 1. Tìm yêu cầu chuyến cố định đã được duyệt
-    const fixedRequest = await this.fixedTripRequestRepository.findOne({
+    // 1. Tìm tất cả các yêu cầu chuyến đi cố định đã được duyệt giữa hai người
+    const fixedRequests = await this.fixedTripRequestRepository.find({
       where: {
         requester: { id: customerId },
         requestee: { id: trip.driver.id },
@@ -52,25 +53,29 @@ export class TripService {
       },
     });
 
-    // 2. Kiểm tra các điều kiện
-    if (fixedRequest) {
+    // 2. Kiểm tra xem có yêu cầu nào khớp với chuyến đi hiện tại không
+    if (fixedRequests && fixedRequests.length > 0) {
       const departureDate = new Date(trip.departureTime);
       const daysOfWeek = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
       const dayOfWeek = daysOfWeek[departureDate.getDay()];
 
-      const isDayMatch = fixedRequest.approvedDays.includes(dayOfWeek);
-      const isTimeMatch = trip.departureTime.toTimeString().slice(0, 5) >= fixedRequest.startTime &&
-                          trip.departureTime.toTimeString().slice(0, 5) <= fixedRequest.endTime;
-      const isLocationMatch = trip.startLocation === fixedRequest.startLocation &&
-                              trip.destination === fixedRequest.destination;
+      for (const request of fixedRequests) {
+        const isDayMatch = request.requestedDay === dayOfWeek;
+        const isTimeMatch =
+          trip.departureTime.toTimeString().slice(0, 5) >= request.startTime &&
+          trip.departureTime.toTimeString().slice(0, 5) <= request.endTime;
+        const isLocationMatch =
+          trip.startLocation === request.startLocation &&
+          trip.destination === request.destination;
 
-      // 3. Nếu khớp, tự động duyệt
-      if (isDayMatch && isTimeMatch && isLocationMatch) {
-        trip.approvedCustomers.push(customer);
-        await this.tripRepository.save(trip);
-        // Gửi thông báo cho khách là đã được tự động duyệt
-        this.roomTripGateway.notifyUserApproved(customerId.toString(), tripId.toString());
-        return { message: 'Tự động tham gia chuyến đi thành công do có lịch cố định!', trip };
+        // 3. Nếu khớp, tự động duyệt và thoát khỏi vòng lặp
+        if (isDayMatch && isTimeMatch && isLocationMatch) {
+          trip.approvedCustomers.push(customer);
+          await this.tripRepository.save(trip);
+          // Gửi thông báo cho khách là đã được tự động duyệt
+          this.roomTripGateway.notifyUserApproved(customerId.toString());
+          return { message: 'Tự động tham gia chuyến đi thành công do có lịch cố định!', trip };
+        }
       }
     }
     
@@ -112,7 +117,7 @@ export class TripService {
 
     // Tính thứ trong tuần từ departureTime
     const departureDate = new Date(dto.departureTime);
-    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const daysOfWeek = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy '];
     const dayOfWeek = daysOfWeek[departureDate.getDay()]; // Lấy tên thứ
 
     // Tạo chuyến đi mới
@@ -134,7 +139,7 @@ export class TripService {
 
   async getAllTrips(userId: number) {
     const trips = await this.tripRepository.find({
-      relations: ['driver', 'customers'],
+      relations: ['driver', 'customers','driver.profile'],
       where: { status: TripStatus.ACTIVE },
       order: { departureTime: 'ASC' },
     });
@@ -154,6 +159,9 @@ export class TripService {
       driver: {
         id: trip.driver.id,
         email: trip.driver.email,
+        name: trip.driver.profile?.name,
+        avatar: trip.driver.profile?.urlPublicAvatar,
+        phone: trip.driver.profile?.phone,
         // Thêm các trường cần thiết khác nếu muốn
       },
       customerIds: trip.customerIds,
@@ -168,7 +176,7 @@ export class TripService {
         //departureTime: MoreThan(afterTime),
         status: TripStatus.ACTIVE,
       },
-      // relations: ['driver', 'customers'],
+      relations: ['driver', 'customers', 'driver.profile'],
       order: { departureTime: 'ASC' },
     });
 
@@ -189,6 +197,8 @@ export class TripService {
         driver: {
           id: trip.driver.id,
           email: trip.driver.email,
+          name: trip.driver.profile?.name,
+          avatar: trip.driver.profile?.urlPublicAvatar,
         },
         customerIds: trip.customerIds,
       }));
@@ -262,7 +272,7 @@ export class TripService {
           customers: { id: userId },
         }
       ],
-      relations: ['driver', 'customers', 'approvedCustomers'],
+      relations: ['driver', 'driver.profile', 'customers', 'customers.profile', 'approvedCustomers', 'approvedCustomers.profile'],
       order: { departureTime: 'DESC' },
     });
     if (!trip) throw new NotFoundException('Bạn không có chuyến đi nào đang hoạt động mà đã được duyệt hoặc là tài xế!');
@@ -306,7 +316,7 @@ export class TripService {
     await this.tripRepository.save(trip);
 
     // Gửi thông báo realtime cho khách vừa được duyệt
-    this.roomTripGateway.notifyUserApproved(customerId.toString(), tripId.toString());
+    this.roomTripGateway.notifyUserApproved(customerId.toString());
     this.roomTripGateway.notifyUserApprovedToRoom(customerId.toString(), tripId.toString());
 
     return { message: 'Duyệt khách thành công!', trip };
@@ -349,4 +359,33 @@ export class TripService {
     return { message: 'Chuyến đi đã được hoàn thành!', trip };
   }
 
+  async getTripHistory(userId: number) {
+    const trips = await this.tripRepository.find({
+      where: [
+        { driver: { id: userId }, status: In([TripStatus.COMPLETED, TripStatus.CANCELED]) },
+        { approvedCustomers: { id: userId }, status: In([TripStatus.COMPLETED, TripStatus.CANCELED]) },
+        { customers: { id: userId }, status: In([TripStatus.COMPLETED, TripStatus.CANCELED]) },
+      ],
+      relations: ['driver', 'driver.profile', 'approvedCustomers', 'customers'],
+      order: { departureTime: 'DESC' },
+    });
+    const historyWithBlockStatus = await Promise.all(
+          trips.map(async (trip) => {
+            const isBlocked = await this.blackListService.isBlockedBetween(userId, trip.driver.id);
+            return {
+              startLocation: trip.startLocation,
+              destination: trip.destination,
+              departureTime: trip.departureTime,
+              driver: {
+                id: trip.driver.id,
+                name: trip.driver.profile?.name,
+                phone: trip.driver.profile?.phone,
+                avatar: trip.driver.profile?.urlPublicAvatar,
+              },
+              isBlocked,
+            };
+          }),
+        );
+    return historyWithBlockStatus;
+  }
 }

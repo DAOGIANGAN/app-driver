@@ -56,10 +56,23 @@ export class BlackListService {
   async getBlockedUsers(userId: number) {
     const list = await this.userBlackListRepository.find({
       where: { blocker: { id: userId } },
-      relations: ['blocked'], // lấy thông tin user bị chặn
+      relations: ['blocked', 'blocked.profile'], // lấy thông tin user và profile của user bị chặn
     });
 
-    return list.map((entry) => entry.blocked);
+    return list.map((entry) => {
+      const { blocked } = entry;
+      const { profile } = blocked;
+
+      return {
+        id: blocked.id,
+        email: blocked.email,
+        isActivated: blocked.isActivated,
+        createdAt: blocked.createdAt,
+        name: profile ? profile.name : null,
+        urlPublicAvatar: profile ? profile.urlPublicAvatar : null,
+        phone: profile ? profile.phone : null,
+      };
+    });
   }
   
   async isBlockedBetween(userAId: number, userBId: number): Promise<boolean> {

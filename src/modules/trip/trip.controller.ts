@@ -51,6 +51,12 @@ export class TripController {
   }
 
   @UseGuards(JwtAccessAuthGuard)
+  @Get('history')
+  async getTripHistory(@Request() req) {
+    return this.tripService.getTripHistory(req.user.id);
+  }
+
+  @UseGuards(JwtAccessAuthGuard)
   @Get(':id')
   async currentTrip(@Param('id') id: number) {
     return await this.tripService.getCurrentTrip(id);
@@ -77,4 +83,5 @@ export class TripController {
   async completeTrip(@Request() req, @Param('tripId') tripId: number) {
     return this.tripService.setTripCompleted(req.user.id, tripId);
   }
+
 }

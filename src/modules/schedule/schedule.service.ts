@@ -78,16 +78,34 @@ export class ScheduleService {
       previousSchedule2: Schedule;
       nextSchedule1: Schedule;
       nextSchedule2: Schedule;
+      driverId: number;
+      driverName: string;
+      phoneNumber: string;
+      urlPublicAvatar: string;
     }[]
   > {
-    const user1Schedules = await this.scheduleRepository.find({ where: { user: { id: userId1 } } });
-    const user2Schedules = await this.scheduleRepository.find({ where: { user: { id: userId2 } } });
+    const user1Schedules = await this.scheduleRepository.find({
+      where: { user: { id: userId1 } },
+    });
+    const user2 = await this.userRepository.findOne({
+      where: { id: userId2 },
+      relations: ['profile', 'schedules'],
+    });
+
+    if (!user2) {
+      throw new NotFoundException(`User with id ${userId2} not found`);
+    }
+    const user2Schedules = user2.schedules;
 
     const matchingSchedules: Array<{
       previousSchedule1: Schedule;
       previousSchedule2: Schedule;
       nextSchedule1: Schedule;
       nextSchedule2: Schedule;
+      driverId: number;
+      driverName: string;
+      phoneNumber: string;
+      urlPublicAvatar: string;
     }> = [];
 
     for (const schedule1 of user1Schedules) {
@@ -100,7 +118,9 @@ export class ScheduleService {
         ) {
           // 2. Tìm một cặp môn học SAU phù hợp cho cả hai người dùng
           const nextSchedule1 = user1Schedules.find(
-            (s) => s.dayOfWeek === schedule1.dayOfWeek && s.startTime > schedule1.endTime,
+            (s) =>
+              s.dayOfWeek === schedule1.dayOfWeek &&
+              s.startTime > schedule1.endTime,
           );
 
           if (nextSchedule1) {
@@ -108,17 +128,25 @@ export class ScheduleService {
               (s) =>
                 s.dayOfWeek === schedule2.dayOfWeek &&
                 s.startTime === nextSchedule1.startTime && // Cùng giờ bắt đầu môn sau
-                s.location === nextSchedule1.location,    // Cùng địa điểm môn sau
+                s.location === nextSchedule1.location, // Cùng địa điểm môn sau
             );
 
             // 3. Nếu tìm thấy một cặp môn sau phù hợp VÀ giảng đường khác nhau
-            if (nextSchedule2 && schedule1.location !== nextSchedule1.location) {
+            if (
+              nextSchedule2 &&
+              schedule1.location !== nextSchedule1.location
+            ) {
               matchingSchedules.push({
                 previousSchedule1: schedule1,
                 previousSchedule2: schedule2,
                 nextSchedule1: nextSchedule1,
                 nextSchedule2: nextSchedule2,
+                driverId: user2.id,
+                driverName: user2.profile.name,
+                phoneNumber: user2.profile.phone,
+                urlPublicAvatar: user2.profile.urlPublicAvatar,
               });
+              console.log('Found matching schedules:', matchingSchedules);
               // Thoát khỏi vòng lặp bên trong vì đã tìm thấy cặp phù hợp cho schedule1
               break;
             }
@@ -138,6 +166,10 @@ export class ScheduleService {
       previousSchedule2: Schedule;
       nextSchedule1: Schedule;
       nextSchedule2: Schedule;
+      driverId: number;
+      driverName: string;
+      phoneNumber: string;
+      urlPublicAvatar: string;
     }[]
   > {
     // 1. Find the most recent trip for the user as a customer
@@ -152,9 +184,7 @@ export class ScheduleService {
     });
 
     if (!lastTrip || !lastTrip.driver) {
-      throw new NotFoundException(
-        'No recent trip found for this user or the trip has no driver.',
-      );
+      return [];
     }
 
     const driverId = lastTrip.driver.id;

@@ -8,11 +8,12 @@ import { PassportModule } from '@nestjs/passport';
 import { TripGateway } from './trip.gateway';
 import { RoomTripGateway } from './roomTrip.gateway';
 import { FixedTripRequest } from 'src/entities/fixed-trip-request.entity';
+import { BlackListModule } from '../black-list/black-list.module';
 
 @Module({
   controllers: [TripController],
   providers: [TripService, TripGateway,RoomTripGateway],
   exports: [TripService],
-  imports: [PassportModule, TypeOrmModule.forFeature([Trip, User, FixedTripRequest])],
+  imports: [PassportModule, TypeOrmModule.forFeature([Trip, User, FixedTripRequest]), BlackListModule],
 })
 export class TripModule {}

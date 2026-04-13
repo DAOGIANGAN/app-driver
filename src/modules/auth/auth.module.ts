@@ -8,11 +8,13 @@ import { LocalStrategy } from 'src/passport/local.strategy';
 import { JwtAccessStrategy, JwtRefreshStrategy } from 'src/passport/jwt.strategy';
 import { OTPService } from './otp.service';
 import { RedisModule } from 'src/redis/redis.module';
+import { RefreshTokenModule } from '../refresh_token/refresh_token.module';
 
 @Module({
     imports: [
         UserModule,
         PassportModule,
+        RefreshTokenModule,
         RedisModule,
         JwtModule.register({
             secret: 'UbQ7ssdfasdgfh32gsfvvYU',
@@ -20,7 +22,13 @@ import { RedisModule } from 'src/redis/redis.module';
         }),
     ],
     controllers: [AuthController],
-    providers: [AuthService, OTPService, LocalStrategy, JwtAccessStrategy, JwtRefreshStrategy],
+    providers: [
+        AuthService, 
+        OTPService, 
+        LocalStrategy, 
+        JwtAccessStrategy, 
+        JwtRefreshStrategy
+    ],
     exports: [AuthService, OTPService],
 })
 export class AuthModule {}

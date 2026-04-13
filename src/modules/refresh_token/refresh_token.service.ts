@@ -22,26 +22,26 @@ export class RefreshTokenService {
 
     const payload = { email: user.email, sub: user.id, createdAt };
 
-    const accessToken = this.jwtService.sign(payload, {
+    const access_token = this.jwtService.sign(payload, {
       secret: process.env.JWT_ACCESS_SECRET,
       expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRATION,
     });
 
-    const refreshToken = this.jwtService.sign(payload, {
+    const refresh_token = this.jwtService.sign(payload, {
       secret: process.env.JWT_REFRESH_SECRET,
       expiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRATION,
     });
 
-    return { accessToken, refreshToken, createdAt };
+    return { access_token, refresh_token, createdAt };
   }
 
   async createTokenWhenLogin(req: any) {
     const user = req.user;
-    const { accessToken, refreshToken, createdAt } = this.createNewToken(user);
+    const { access_token, refresh_token, createdAt } = this.createNewToken(user);
 
-    await this.saveNewRefreshToken(req, refreshToken, createdAt);
+    await this.saveNewRefreshToken(req, refresh_token, createdAt);
 
-    return { accessToken, refreshToken };
+    return { access_token, refresh_token };
   }
 
   changeExpirationToMiliSeconds(expiration: string) {
@@ -214,11 +214,10 @@ export class RefreshTokenService {
   }
 
   async validateRefreshToken(payload: any, refreshToken: string) {
-    const { userId, createdAt } = payload;
+    const { id } = payload;
     const refreshTokenEntity = await this.refreshTokenRepository.findOne({
-      where: { userId, createdAt: new Date(createdAt) },
+      where: { userId: id},
     });
-
     if (!refreshTokenEntity) {
       return false;
     }

@@ -4,7 +4,7 @@ import { UserService } from '../user/user.service';
 import { CheckUniqueEmailGuard } from 'src/guards/check-unique-email.guard';
 import { ConfirmPasswordGuard } from 'src/guards/confirm-password.guard';
 import { LocalAuthGuard } from 'src/guards/local-auth.guard';
-import { JwtAccessAuthGuard } from 'src/guards/jwt-auth.guard';
+import { JwtAccessAuthGuard, JwtRefreshAuthGuard } from 'src/guards/jwt-auth.guard';
 import { OTPService } from './otp.service';
 
 @Controller('auth')
@@ -25,7 +25,7 @@ export class AuthController {
     @UseGuards(LocalAuthGuard)
     @Post('login')
     async login(@Request() req: any) {
-        return this.authService.login(req.user);
+        return this.authService.login(req);
     }
 
     @UseGuards(JwtAccessAuthGuard)
@@ -52,5 +52,11 @@ export class AuthController {
     @Post('verify-otp-mail-for-forgot-password')
     async verifyOTPMailForForgotPassword(@Request() req) {
         return this.otpService.verifyOTPMailForForgotPassword(req);
+    }
+
+    @UseGuards(JwtRefreshAuthGuard)
+    @Get('is-logged-in')
+    async isLoggedIn(@Request() req) {
+        return this.authService.isLoggedIn(req);
     }
 }

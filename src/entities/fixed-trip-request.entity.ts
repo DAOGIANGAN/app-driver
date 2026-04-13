@@ -24,11 +24,8 @@ export class FixedTripRequest {
   @ManyToOne(() => User, (user) => user.receivedFixedTripRequests)
   requestee: User;
 
-  @Column('simple-array')
-  requestedDays: string[];
-
-  @Column('simple-array', { nullable: true })
-  approvedDays: string[];
+  @Column({ nullable: true })
+  requestedDay: string;
 
   @Column()
   startTime: string;

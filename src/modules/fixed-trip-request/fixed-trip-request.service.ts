@@ -18,7 +18,7 @@ export class FixedTripRequestService {
     requesterId: number,
     requesteeId: number,
     data: {
-      requestedDays: string[];
+      requestedDay: string;
       startTime: string;
       endTime: string;
       startLocation: string;
@@ -38,7 +38,7 @@ export class FixedTripRequestService {
     const newRequest = this.requestRepository.create({
       requester,
       requestee,
-      requestedDays: data.requestedDays,
+      requestedDay: data.requestedDay,
       startTime: data.startTime,
       endTime: data.endTime,
       startLocation: data.startLocation,
@@ -52,11 +52,11 @@ export class FixedTripRequestService {
   async getReceivedRequests(userId: number) {
     return this.requestRepository.find({
       where: { requestee: { id: userId }, status: RequestStatus.PENDING },
-      relations: ['requester'],
+      relations: ['requester', 'requester.profile'],
     });
   }
 
-  async approveRequest(requestId: number, approverId: number, approvedDays: string[]) {
+  async approveRequest(requestId: number, approverId: number) {
     const request = await this.requestRepository.findOne({
         where: { id: requestId },
         relations: ['requestee']
@@ -66,13 +66,6 @@ export class FixedTripRequestService {
     if (request.requestee.id !== approverId) throw new BadRequestException('You are not authorized to approve this request.');
     if (request.status !== RequestStatus.PENDING) throw new BadRequestException('Request is not pending.');
 
-    // Validate approvedDays are a subset of requestedDays
-    const isValid = approvedDays.every(day => request.requestedDays.includes(day));
-    if (!isValid) {
-        throw new BadRequestException('Approved days must be a subset of requested days.');
-    }
-
-    request.approvedDays = approvedDays;
     request.status = RequestStatus.APPROVED;
     return this.requestRepository.save(request);
   }

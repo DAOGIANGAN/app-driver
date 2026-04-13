@@ -15,6 +15,19 @@ export class RoomTripGateway {
   // Lưu trữ userId và socketId
   private userSocketMap = new Map<string, string>();
 
+  // TẠO SỰ KIỆN MỚI ĐỂ ĐĂNG KÝ USER
+  @SubscribeMessage('registerUser')
+  handleRegisterUser(
+    @MessageBody() data: { userId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    if (data.userId) {
+      this.userSocketMap.set(data.userId, client.id);
+      console.log(`User ${data.userId} registered with socket ${client.id}`);
+    }
+  }
+
+
   // Người dùng tham gia room theo tripId
   @SubscribeMessage('joinTripRoom')
   handleJoinTripRoom(
@@ -44,10 +57,10 @@ export class RoomTripGateway {
   }
 
   // Thông báo cho user đã được duyệt tham gia chuyến
-  notifyUserApproved(userId: string, tripId: string) {
+  notifyUserApproved(userId: string) {
     const socketId = this.userSocketMap.get(userId);
     if (socketId) {
-      this.server.to(socketId).emit('approvedToTrip', { tripId });
+      this.server.to(socketId).emit('approvedToTrip');
     }
   }
 
