@@ -38,6 +38,13 @@ export class AuthController {
     async getOTPMailForRegister(@Request() req, @Query() query) {
         return this.otpService.getOTPMailForRegister(req, query);
     }
+    
+    @UseGuards(JwtRefreshAuthGuard)
+    @Get('is-logged-in')
+    async isLoggedIn(@Request() req) {
+        console.log('Checking if user is logged in with payload:', req.user);
+        return this.authService.isLoggedIn(req);
+    }
 
     @Post('verify-otp-mail-for-register')
     async verifyOTPMailForRegister(@Request() req) {
@@ -54,9 +61,4 @@ export class AuthController {
         return this.otpService.verifyOTPMailForForgotPassword(req);
     }
 
-    @UseGuards(JwtRefreshAuthGuard)
-    @Get('is-logged-in')
-    async isLoggedIn(@Request() req) {
-        return this.authService.isLoggedIn(req);
-    }
 }

@@ -10,7 +10,7 @@ import { Server, Socket } from 'socket.io';
 @WebSocketGateway({ cors: true })
 export class RoomTripGateway {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   // Lưu trữ userId và socketId
   private userSocketMap = new Map<string, string>();
@@ -39,22 +39,45 @@ export class RoomTripGateway {
     console.log(`User ${data.userId} joined room ${data.tripId}`);
   }
 
-  // Người dùng hủy chuyến
+  // Tài xế hủy chuyến
   @SubscribeMessage('cancelTrip')
   handleCancelTrip(
     @MessageBody() data: { tripId: string; userId: string; message: string },
     @ConnectedSocket() client: Socket,
   ) {
-    console.log(`User ${data.userId} canceled trip ${data.tripId}`);
-
+    console.log(`Driver ${data.userId} canceled trip ${data.tripId}`);
     // Phát thông báo đến tất cả các thành viên trong room
-    this.server.to(data.tripId).emit('tripCanceled', {
-      message: data.message,
-      tripId: data.tripId,
-      userId: data.userId,
-    });
-
+    this.notifyTripCanceled(data.tripId, data.userId, data.message);
   }
+
+  // Phát thông báo hủy chuyến cho toàn bộ thành viên trong room
+  notifyTripCanceled(tripId: string, userId: string, message: string) {
+    this.server.to(tripId).emit('tripCanceled', {
+      message,
+      tripId,
+      userId,
+    });
+  }
+
+  // Tài xế hủy chuyến
+  @SubscribeMessage('outTrip')
+  handleOutTrip(
+    @MessageBody() data: { tripId: string; userId: string; message: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log(`User ${data.userId} out of trip ${data.tripId}`);
+    // Phát thông báo đến tất cả các thành viên trong room
+    this.notifyTripOut(data.tripId, data.userId, data.message);
+  }
+
+  // Phát thông báo hủy chuyến cho toàn bộ thành viên trong room
+  notifyTripOut(tripId: string, userId: string, message: string) {
+    this.server.to(tripId).emit('tripOut', {
+      message,
+      tripId,
+      userId,
+    });
+  }  
 
   // Thông báo cho user đã được duyệt tham gia chuyến
   notifyUserApproved(userId: string) {

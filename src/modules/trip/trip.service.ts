@@ -173,7 +173,7 @@ export class TripService {
       where: {
         startLocation,
         destination,
-        //departureTime: MoreThan(afterTime),
+        departureTime: MoreThan(afterTime),
         status: TripStatus.ACTIVE,
       },
       relations: ['driver', 'customers', 'driver.profile'],
@@ -221,6 +221,13 @@ export class TripService {
     // Đổi trạng thái chuyến đi thành CANCELED
     trip.status = TripStatus.CANCELED;
     await this.tripRepository.save(trip);
+
+    this.roomTripGateway.notifyTripCanceled(
+      tripId.toString(),
+      driverId.toString(),
+      'Chuyến đi đã bị tài xế hủy!',
+    );
+
     // Gửi thông báo hủy chuyến đến các khách trong room
     return { message: 'Chuyến đi đã được hủy thành công!', trip };
   }
@@ -252,6 +259,11 @@ export class TripService {
     }
 
     await this.tripRepository.save(trip);
+    this.roomTripGateway.notifyTripOut(
+      tripId.toString(),
+      customerId.toString(),
+      'Một hành khách đã rời khỏi chuyến đi!',
+    );
     return { message: 'Bạn đã rời khỏi chuyến đi thành công!', trip };
   }
 
@@ -267,10 +279,6 @@ export class TripService {
           status: TripStatus.ACTIVE,
           driver: { id: userId },
         },
-        {
-          status: TripStatus.ACTIVE,
-          customers: { id: userId },
-        }
       ],
       relations: ['driver', 'driver.profile', 'customers', 'customers.profile', 'approvedCustomers', 'approvedCustomers.profile'],
       order: { departureTime: 'DESC' },

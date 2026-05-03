@@ -10,7 +10,7 @@ import { Server, Socket } from 'socket.io';
 @WebSocketGateway({ cors: true })
 export class TripGateway {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   // Lưu trữ userId và socketId
   private userSocketMap = new Map<string, string>();
@@ -26,21 +26,6 @@ export class TripGateway {
     console.log(`User ${data.userId} joined room ${data.tripId}`);
   }
 
-  // Tài xế gửi vị trí của mình đến room
-  @SubscribeMessage('shareLocation')
-  handleShareLocation(
-    @MessageBody() data: { tripId: string; userId: string; latitude: number; longitude: number },
-    @ConnectedSocket() client: Socket,
-  ) {
-    console.log(`Driver ${data.userId} shared location for trip ${data.tripId}:`, data);
-
-    // Gửi thông tin vị trí đến tất cả các thành viên trong room
-    this.server.to(data.tripId).emit('locationUpdate', {
-      userId: data.userId,
-      latitude: data.latitude,
-      longitude: data.longitude,
-    });
-  }
 
   // Xóa user khỏi map khi ngắt kết nối
   handleDisconnect(client: Socket) {

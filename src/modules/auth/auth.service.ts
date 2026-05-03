@@ -13,19 +13,19 @@ export class AuthService {
     ) {}
 
     async login(req: any) {
-        const payload = { email: req.user.email, sub: req.user.id };
-        const now = new Date();
-        return {
-            access_token: this.jwtService.sign(payload),
-            refresh_token: this.jwtService.sign({ ...payload, createdAt: now.toISOString() }, { expiresIn: '30d' })
-        };
-        // const { access_token, refresh_token } =
-        // await this.refreshTokenService.createTokenWhenLogin(req);
-
+        // const payload = { email: req.user.email, sub: req.user.id };
+        // const now = new Date();
         // return {
-        //     access_token,
-        //     refresh_token,
+        //     access_token: this.jwtService.sign(payload),
+        //     refresh_token: this.jwtService.sign({ ...payload, createdAt: now.toISOString() }, { expiresIn: '30d' })
         // };
+        const { access_token, refresh_token } =
+        await this.refreshTokenService.createTokenWhenLogin(req);
+
+        return {
+            access_token,
+            refresh_token,
+        };
     }
 
     async isLoggedIn(req: any) {

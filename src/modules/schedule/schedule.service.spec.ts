@@ -3,12 +3,14 @@ import { ScheduleService } from './schedule.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Schedule } from '../../entities/schedule.entity';
 import { User } from '../../entities/user.entity';
+import { Trip } from '../../entities/trip.entity';
 import { Repository } from 'typeorm';
 
 describe('ScheduleService', () => {
   let service: ScheduleService;
   let scheduleRepository: Repository<Schedule>;
   let userRepository: Repository<User>;
+  let tripRepository: Repository<Trip>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -16,11 +18,25 @@ describe('ScheduleService', () => {
         ScheduleService,
         {
           provide: getRepositoryToken(Schedule),
-          useClass: Repository,
+          useValue: {
+            create: jest.fn(),
+            save: jest.fn(),
+            find: jest.fn(),
+            findOne: jest.fn(),
+            remove: jest.fn(),
+          },
         },
         {
           provide: getRepositoryToken(User),
-          useClass: Repository,
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(Trip),
+          useValue: {
+            // Mock methods for Trip repository can be added here later
+          },
         },
       ],
     }).compile();
@@ -28,6 +44,7 @@ describe('ScheduleService', () => {
     service = module.get<ScheduleService>(ScheduleService);
     scheduleRepository = module.get<Repository<Schedule>>(getRepositoryToken(Schedule));
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    tripRepository = module.get<Repository<Trip>>(getRepositoryToken(Trip));
   });
 
   it('should be defined', () => {

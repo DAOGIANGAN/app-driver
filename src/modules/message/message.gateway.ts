@@ -12,15 +12,6 @@ export class MessageGateway {
 
   constructor(private readonly messageService: MessageService) {}
 
-//   // Khi user kết nối, lưu userId và socketId (nên có sự kiện join)
-//   @SubscribeMessage('joinMessageSocket')
-//   handleJoinMessageSocket(
-//     @MessageBody() data: { userId: string },
-//     @ConnectedSocket() client: Socket,
-//   ) {
-//     this.userSocketMap.set(data.userId, client.id);
-//   }
-
   // HÀM NÀY LÀ QUAN TRỌNG NHẤT CẦN SỬA
   @SubscribeMessage('joinRoom')
   handleJoinRoom(
