@@ -44,6 +44,7 @@ export class OTPService {
       },
     });
     this.redisClient.set(`OTP_${email}`, OTPCode, 'EX', 300); // Set OTP with 5 minutes expiration
+    console.log(`OTP for ${email}: ${OTPCode}`); // Log OTP for testing purposes
     return new HttpException(
       { message: 'OTP sent successfully' },
       HttpStatus.OK,

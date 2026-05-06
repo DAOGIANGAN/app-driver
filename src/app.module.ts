@@ -24,8 +24,8 @@ import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
-    MongooseModule.forRoot('mongodb://localhost:27017/appdriver'),
     ConfigModule.forRoot({ isGlobal: true }),
+    MongooseModule.forRoot(process.env.MONGODB_URL || ''), 
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DATABASE_HOST, // hoặc host của bạn
