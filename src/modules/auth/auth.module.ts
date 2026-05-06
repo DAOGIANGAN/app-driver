@@ -17,7 +17,7 @@ import { RefreshTokenModule } from '../refresh_token/refresh_token.module';
         RefreshTokenModule,
         RedisModule,
         JwtModule.register({
-            secret: 'UbQ7ssdfasdgfh32gsfvvYU',
+            secret: process.env.JWT_SECRET || 'UbQ7ssdfasdgfh32gsfvvYU',
             signOptions: { expiresIn: '1h' },
         }),
     ],
