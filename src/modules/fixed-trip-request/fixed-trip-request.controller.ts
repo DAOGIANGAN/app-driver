@@ -1,8 +1,7 @@
-// filepath: e:\AppDriver\app-driver\src\modules\fixed-trip-request\fixed-trip-request.controller.ts
+
 import { Controller, Post, Get, Patch, Param, Body, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
 import { JwtAccessAuthGuard } from 'src/guards/jwt-auth.guard';
 import { FixedTripRequestService } from './fixed-trip-request.service';
-import { U } from 'node_modules/@faker-js/faker/dist/airline-DF6RqYmq';
 
 @UseGuards(JwtAccessAuthGuard)
 @Controller('fixed-trip-requests')
@@ -47,4 +46,17 @@ export class FixedTripRequestController {
   rejectRequest(@Request() req, @Param('id', ParseIntPipe) id: number) {
     return this.requestService.rejectRequest(id, req.user.id);
   }
+
+  @Patch(':id/cancel')
+  @UseGuards(JwtAccessAuthGuard)
+  cancelRequest(@Request() req, @Param('id', ParseIntPipe) id: number) {
+    return this.requestService.cancelRequest(id, req.user.id);
+  }
+
+  @Get('my-approved-requests')
+  @UseGuards(JwtAccessAuthGuard)
+  getFixedTrip(@Request() req) {
+    return this.requestService.getFixedTrip(req.user.id);
+  }
+
 }

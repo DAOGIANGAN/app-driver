@@ -43,7 +43,6 @@ export class TripService {
         throw new BadRequestException('Bạn đã tham gia chuyến đi này rồi!');
     }
 
-    // --- LOGIC MỚI ---
     // 1. Tìm tất cả các yêu cầu chuyến đi cố định đã được duyệt giữa hai người
     const fixedRequests = await this.fixedTripRequestRepository.find({
       where: {
@@ -74,12 +73,12 @@ export class TripService {
           await this.tripRepository.save(trip);
           // Gửi thông báo cho khách là đã được tự động duyệt
           this.roomTripGateway.notifyUserApproved(customerId.toString());
-          return { message: 'Tự động tham gia chuyến đi thành công do có lịch cố định!', trip };
+          return { message: 'Tự động tham gia chuyến đi thành công do có lịch cố định!' };
         }
       }
     }
     
-    // --- LOGIC CŨ (nếu không có yêu cầu cố định phù hợp) ---
+    //(nếu không có yêu cầu cố định phù hợp)
     trip.customers.push(customer);
     await this.tripRepository.save(trip);
     
@@ -88,7 +87,7 @@ export class TripService {
       trip.id.toString(),
       customerId.toString()
     );
-    return trip;
+    return { message: 'Đã đăng ký thành công!' };
   }
 
   // 🚗 Tài xế tạo chuyến mới
@@ -139,33 +138,36 @@ export class TripService {
 
   async getAllTrips(userId: number) {
     const trips = await this.tripRepository.find({
-      relations: ['driver', 'customers','driver.profile'],
+      relations: ['driver', 'customers', 'driver.profile'],
       where: { status: TripStatus.ACTIVE },
       order: { departureTime: 'ASC' },
+      take: 100,
     });
 
     return trips
-    .filter(trip =>
-      trip.driver?.id !== userId &&
-      (!trip.customers || !trip.customers.some(c => c.id === userId))
-    )
-    .map(trip => ({
-      id: trip.id,
-      slot: trip.slot,
-      departureTime: trip.departureTime,
-      startLocation: trip.startLocation,
-      destination: trip.destination,
-      status: trip.status,
-      driver: {
-        id: trip.driver.id,
-        email: trip.driver.email,
-        name: trip.driver.profile?.name,
-        avatar: trip.driver.profile?.urlPublicAvatar,
-        phone: trip.driver.profile?.phone,
-        // Thêm các trường cần thiết khác nếu muốn
-      },
-      customerIds: trip.customerIds,
-    }));
+      .filter(
+        (trip) =>
+          trip.driver?.id !== userId &&
+          !trip.customers?.some((c) => c.id === userId) &&
+          !trip.approvedCustomers?.some((c) => c.id === userId),
+      )
+      .map((trip) => ({
+        id: trip.id,
+        slot: trip.slot,
+        departureTime: trip.departureTime,
+        startLocation: trip.startLocation,
+        destination: trip.destination,
+        status: trip.status,
+        driver: {
+          id: trip.driver.id,
+          email: trip.driver.email,
+          name: trip.driver.profile?.name,
+          avatar: trip.driver.profile?.urlPublicAvatar,
+          phone: trip.driver.profile?.phone,
+          // Thêm các trường cần thiết khác nếu muốn
+        },
+        customerIds: trip.customerIds,
+      }));
   }
 
   async findTripsByLocationAndTime(startLocation: string, destination: string, afterTime: Date, userId: number ) {
@@ -199,6 +201,7 @@ export class TripService {
           email: trip.driver.email,
           name: trip.driver.profile?.name,
           avatar: trip.driver.profile?.urlPublicAvatar,
+          phone: trip.driver.profile?.phone,
         },
         customerIds: trip.customerIds,
       }));
@@ -310,6 +313,22 @@ export class TripService {
     // Kiểm tra đã duyệt chưa
     if (trip.approvedCustomers.some(c => c.id === customerId)) {
       throw new BadRequestException('Khách đã được duyệt!');
+    }
+
+    // Kiểm tra xem khách có đang ở trong một chuyến đi ACTIVE khác không
+    const customerWithTrips = await this.userRepository.findOne({
+      where: { id: customerId },
+      relations: ['approvedTrips'],
+    });
+
+    const hasActiveTrip = customerWithTrips?.approvedTrips.some(
+      (t) => t.status === TripStatus.ACTIVE,
+    );
+
+    if (hasActiveTrip) {
+      throw new BadRequestException(
+        'Khách hàng này đã tham gia một chuyến đi khác!',
+      );
     }
 
     // Thêm vào danh sách đã duyệt

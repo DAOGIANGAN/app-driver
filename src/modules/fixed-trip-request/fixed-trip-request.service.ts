@@ -56,6 +56,26 @@ export class FixedTripRequestService {
     });
   }
 
+  async getFixedTrip(userId: number) {
+    return this.requestRepository.find({
+      where: { requestee: { id: userId }, status: RequestStatus.APPROVED },
+      relations: ['requester', 'requester.profile'],
+    });
+  }
+
+  async cancelRequest(requestId: number, requesteeId: number) {
+    const request = await this.requestRepository.findOne({
+        where: { id: requestId },
+        relations: ['requestee']
+    });
+    if (!request) throw new NotFoundException('Request not found.');
+    if (request.requestee.id !== requesteeId) throw new BadRequestException('You are not authorized to cancel this request.');
+    if (request.status !== RequestStatus.APPROVED) throw new BadRequestException('Request is not approved.');
+
+    request.status = RequestStatus.CANCELLED;
+    return this.requestRepository.save(request);
+  }
+
   async approveRequest(requestId: number, approverId: number) {
     const request = await this.requestRepository.findOne({
         where: { id: requestId },

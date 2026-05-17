@@ -11,6 +11,7 @@ export enum RequestStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
   REJECTED = 'rejected',
+  CANCELLED = 'cancelled',
 }
 
 @Entity('fixed_trip_requests')
